@@ -1,4 +1,4 @@
-""" DH transformation matrix testing on a single link """
+""" DH transformation for 2-DOF RR robot (two links) """
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -14,92 +14,109 @@ def dh_transform(a, alpha, d, theta):
         [0,       0,      0,    1]
     ])
 
-# DH Parameters (change the values depends on the link configuration)
-a = 0          # Link length (translation along x-axis)
-alpha = np.pi/2  # Link twist (rotation about x-axis)= 90 degrees
-d = 3          # Link offset (translation along z-axis)
-theta = 0        # Joint angle (rotation about z-axis) 
+# Robot parameters
+L1 = 3.0  # Link 1 length (vertical)
+L2 = 5.0  # Link 2 length (horizontal)
 
-# Input point coordinates (where the link originated)
-x = 0
-y = 0
-z = 0
+# Joint angles (change these to test different configurations)
+theta1 = np.radians(0)   # Base rotation (about z0)
+theta2 = np.radians(45)   # Second joint rotation (about z1)
 
-print("*** STANDARD DH TRANSFORMATION TEST ON SINGLE LINK ***")
-print()
-print("DH Parameters:")
-print(f"  a     = {a} (link length)")
-print(f"  alpha = {alpha:.6f} rad = {np.degrees(alpha):.2f}° (link twist)")
-print(f"  d     = {d} (link offset)")
-print(f"  theta = {theta:.6f} rad = {np.degrees(theta):.2f}° (joint angle)")
-print()
-print("Input Point:")
-print(f"  x = {x}")
-print(f"  y = {y}")
-print(f"  z = {z}")
-print(f"  Point = ({x}, {y}, {z})")
+# Base position (origin)
+P0 = np.array([0, 0, 0, 1])  # x=0, y=0, z=0, 1
+
+# Link 1 transformation: Base to Joint 2
+T01 = dh_transform(a=0, alpha=np.pi/2, d=L1, theta=theta1)
+print("Transformation T01 (Base to Joint 2):")
+print(T01)
 print()
 
-# Compute transformation matrix
-T = dh_transform(a, alpha, d, theta)
-
-print("Transformation Matrix T:")
-print(T)
+# Position of Joint 2
+P1_homogeneous = T01 @ P0
+P1 = P1_homogeneous[:3]
+print(f"Joint 2 position: ({P1[0]:.4f}, {P1[1]:.4f}, {P1[2]:.4f})")
 print()
 
-# Transform the point directly using matrix multiplication
-# Convert point to homogeneous coordinates [x, y, z, 1]
-point_homogeneous = np.array([x, y, z, 1.0])
+# Link 2 transformation: Joint 2 to End-effector
+T12 = dh_transform(a=L2, alpha=0, d=0, theta=theta2)
+print("Transformation T12 (Joint 2 to End-effector):")
+print(T12)
+print()
 
-# Apply transformation: T @ point
-transformed_homogeneous = T @ point_homogeneous
+# Total transformation: Base to End-effector
+T02 = T01 @ T12
+print("Total Transformation T02 (Base to End-effector):")
+print(T02)
+print()
 
-# Extract 3D coordinates of where the link ends up (drop the last element which should be 1)
-x_new, y_new, z_new = transformed_homogeneous[0], transformed_homogeneous[1], transformed_homogeneous[2]
-
-print("Result:")
-print(f"  Original point:    ({x}, {y}, {z})")
-print(f"  Transformed point: ({x_new:.6f}, {y_new:.6f}, {z_new:.6f})")
+# Position of End-effector
+P2_homogeneous = T02 @ P0
+P2 = P2_homogeneous[:3]
+print(f"End-effector position: ({P2[0]:.4f}, {P2[1]:.4f}, {P2[2]:.4f})")
 print()
 
 # ============================================================================
-# 3D VISUALIZATION - Simple link drawing
+# 3D VISUALIZATION
 # ============================================================================
 
-fig = plt.figure(figsize=(10, 8))
+fig = plt.figure(figsize=(12, 10))
 ax = fig.add_subplot(111, projection='3d')
 
-# Draw the link from original point to transformed point
-ax.plot([x, x_new], [y, y_new], [z, z_new], 'b-', linewidth=4, label='Link')
+# Joint positions
+base = np.array([0, 0, 0])
+joint2 = P1
+end_effector = P2
 
-# Plot original point (joint start)
-ax.scatter([x], [y], [z], color='red', s=150, marker='o', 
-           label=f'Start ({x}, {y}, {z})', edgecolors='black', linewidths=2)
+# Draw Link 1 (Base to Joint 2)
+ax.plot([base[0], joint2[0]], 
+        [base[1], joint2[1]], 
+        [base[2], joint2[2]], 
+        'b-', linewidth=6, label=f'Link 1 (L={L1})')
 
-# Plot transformed point (joint end)
-ax.scatter([x_new], [y_new], [z_new], color='green', s=150, marker='o', 
-           label=f'End ({x_new:.2f}, {y_new:.2f}, {z_new:.2f})', 
-           edgecolors='black', linewidths=2)
+# Draw Link 2 (Joint 2 to End-effector)
+ax.plot([joint2[0], end_effector[0]], 
+        [joint2[1], end_effector[1]], 
+        [joint2[2], end_effector[2]], 
+        'g-', linewidth=6, label=f'Link 2 (L={L2})')
+
+# Plot joints
+ax.scatter([base[0]], [base[1]], [base[2]], 
+           color='red', s=200, marker='o', 
+           label='Base (Joint 1)', edgecolors='black', linewidths=2, zorder=5)
+
+ax.scatter([joint2[0]], [joint2[1]], [joint2[2]], 
+           color='orange', s=200, marker='o', 
+           label='Joint 2', edgecolors='black', linewidths=2, zorder=5)
+
+ax.scatter([end_effector[0]], [end_effector[1]], [end_effector[2]], 
+           color='purple', s=200, marker='s', 
+           label='End-effector', edgecolors='black', linewidths=2, zorder=5)
+
+# Draw coordinate frame at base
+frame_scale = 1.5
+ax.quiver(0, 0, 0, frame_scale, 0, 0, color='red', arrow_length_ratio=0.3, linewidth=2, alpha=0.6)
+ax.quiver(0, 0, 0, 0, frame_scale, 0, color='green', arrow_length_ratio=0.3, linewidth=2, alpha=0.6)
+ax.quiver(0, 0, 0, 0, 0, frame_scale, color='blue', arrow_length_ratio=0.3, linewidth=2, alpha=0.6)
 
 # Labels and title
 ax.set_xlabel('X', fontsize=12, fontweight='bold')
 ax.set_ylabel('Y', fontsize=12, fontweight='bold')
 ax.set_zlabel('Z', fontsize=12, fontweight='bold')
-ax.set_title(f'Single Link DH Transformation\na={a}, α={np.degrees(alpha):.1f}°, d={d}, θ={np.degrees(theta):.1f}°', 
+ax.set_title(f'2-DOF RR Robot\nθ1={np.degrees(theta1):.1f}°, θ2={np.degrees(theta2):.1f}°', 
              fontsize=14, fontweight='bold')
 
 # Set equal aspect ratio
-all_coords = np.array([[x, y, z], [x_new, y_new, z_new]])
-max_range = np.array([np.ptp(all_coords[:, 0]),
-                      np.ptp(all_coords[:, 1]),
-                      np.ptp(all_coords[:, 2])]).max() / 2.0
+all_points = np.array([base, joint2, end_effector])
+max_range = np.array([np.ptp(all_points[:, 0]),
+                      np.ptp(all_points[:, 1]),
+                      np.ptp(all_points[:, 2])]).max() / 2.0
 
 # Add some padding
-max_range = max(max_range, 1.0) * 1.2
+max_range = max(max_range, 2.0) * 1.2
 
-mid_x = all_coords[:, 0].mean()
-mid_y = all_coords[:, 1].mean()
-mid_z = all_coords[:, 2].mean()
+mid_x = all_points[:, 0].mean()
+mid_y = all_points[:, 1].mean()
+mid_z = all_points[:, 2].mean()
 
 ax.set_xlim(mid_x - max_range, mid_x + max_range)
 ax.set_ylim(mid_y - max_range, mid_y + max_range)
@@ -110,5 +127,13 @@ ax.set_box_aspect([1, 1, 1])
 ax.grid(True, alpha=0.3)
 ax.legend(loc='best', fontsize=10)
 
+# Add text box with info
+info_text = f'Robot Configuration:\nL1 = {L1}\nL2 = {L2}\nθ1 = {np.degrees(theta1):.1f}°\nθ2 = {np.degrees(theta2):.1f}°'
+ax.text2D(0.02, 0.98, info_text, transform=ax.transAxes, 
+          fontsize=10, verticalalignment='top',
+          bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+
 plt.tight_layout()
 plt.show()
+
+print("*** Visualization complete! ***")
