@@ -6,3 +6,5 @@ kine_6dof.py
 kine_bilal.py 
 kinematics_3d.py 
 kinematics.py
+kinematics_new.py
+dh_transform_fwd.py
